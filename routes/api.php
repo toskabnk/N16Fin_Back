@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BussinessLineController;
 use App\Http\Controllers\CenterController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ShareTypeController;
@@ -55,6 +56,15 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
 
     //Share types routes
     Route::controller(ShareTypeController::class)->prefix("share-types/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    //Business line routes
+    Route::controller(BussinessLineController::class)->prefix("business-lines/")->group(function () {
         Route::get('/', 'viewAll');
         Route::get('/{id}', 'view');
         Route::post('/', 'create'); //super_admin

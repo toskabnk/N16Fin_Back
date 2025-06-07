@@ -374,4 +374,45 @@ class InvoiceController extends ResponseController
         //Return the response
         return $this->respondSuccess($invoice);
     }
+
+    public function create(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'odoo_invoice_id' => 'string|max:255|nullable',
+            'reference' => 'required|string|max:255',
+            'invoice_date' => 'required|date',
+            'month' => 'required|string',
+            'amount_total' => 'required|numeric',
+            'manual' => 'required|boolean',
+            'centers' => 'sometimes|array',
+            'centers.*' => 'string',
+            'business_line_id' => 'sometimes|string|nullable',
+            'share_type_id' => 'sometimes|string',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'type' => 'sometimes|string|in:in,out',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Add type null if not provided
+        if (!isset($data['state'])) {
+            $data['state'] = null;
+        }
+
+        //Set manual to true
+        $data['manual'] = true;
+
+        //Create the invoice
+        $invoice = Invoice::create($data);
+
+        //Return the response
+        return $this->respondSuccess($invoice, 201);
+    }
 }

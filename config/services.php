@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'odoo' => [
+        'url'     => env('ODOO_URL'),
+        'db'      => env('ODOO_DB'),
+        'user_id' => env('ODOO_USER_ID'),
+        'api_key' => env('ODOO_API_KEY'),
+    ],
+
 ];

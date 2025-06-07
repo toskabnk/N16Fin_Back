@@ -6,6 +6,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/app/Console/Commands
 .env
 .env.backup
 .env.production

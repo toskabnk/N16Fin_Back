@@ -87,8 +87,7 @@ class AuthController extends ResponseController
             return $this-> respondUnauthorized();
         }
 
-        //Revoke the user's token
-        $currentUser->token()->revoke();
+        $currentUser->currentAccessToken()->delete();
 
         //Return the response
         return $this->respondSuccess('Successfully logged out');

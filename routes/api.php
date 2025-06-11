@@ -4,9 +4,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BussinessLineController;
 use App\Http\Controllers\CenterController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ObjectiveAndResultController;
 use App\Http\Controllers\ShareTypeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\YearController;
 use Illuminate\Support\Facades\Route;
 
 //AUTH
@@ -66,6 +68,23 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
     //Business line routes
     Route::controller(BussinessLineController::class)->prefix("business-lines/")->group(function () {
         Route::get('/', 'viewAll');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    //Objective and Result routes
+    Route::controller(ObjectiveAndResultController::class)->prefix("objetives/")->group(function () {
+        Route::get('/{id_business_line}/{year}/', 'viewYearlyObjectivesAndResults');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    Route::controller(YearController::class)->prefix("years/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/currentYear', 'viewCurrentYear');
         Route::get('/{id}', 'view');
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin

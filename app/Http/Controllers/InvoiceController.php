@@ -269,7 +269,7 @@ class InvoiceController extends ResponseController
             'amount_total' => 'sometimes|numeric',
             'manual' => 'sometimes|boolean',
             'share_type_id' => 'sometimes|string',
-            'centers' => 'sometimes|array',
+            'centers' => 'sometimes|array|nullable',
             'centers.*' => 'string',
             'type' => 'sometimes|string|in:in,out',
         ];

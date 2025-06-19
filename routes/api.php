@@ -76,7 +76,7 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
 
     //Objective and Result routes
     Route::controller(ObjectiveAndResultController::class)->prefix("objetives/")->group(function () {
-        Route::get('/{id_business_line}/{year}/', 'viewYearlyObjectivesAndResults');
+        Route::get('/', 'viewYearlyObjectivesAndResults');
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin
         Route::delete('/{id}', 'delete'); //super_admin

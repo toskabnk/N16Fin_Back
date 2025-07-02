@@ -45,6 +45,7 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin
         Route::delete('/{id}', 'delete'); //super_admin
+        Route::post('/updateCentersOnInvoices', 'updateCentersOnInvoices'); //super_admin
     });
 
     //Center routes

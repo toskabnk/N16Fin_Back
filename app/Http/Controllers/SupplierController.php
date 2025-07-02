@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Center;
+use App\Models\Invoice;
 use App\Models\Supplier;
 use App\Traits\ValidateRequest;
 use Illuminate\Http\JsonResponse;
@@ -15,8 +17,6 @@ class SupplierController extends ResponseController
     {
         //Validation rules
         $rules = [
-            'supplier_id' => 'sometimes|string',
-            'center_id' => 'sometimes|string',
             'type' => 'sometimes|string',
         ];
 
@@ -29,18 +29,10 @@ class SupplierController extends ResponseController
         }
 
         //Get the filters
-        $supplierId = $data['supplier_id'] ?? null;
-        $centerId = $data['center_id'] ?? null;
         $type = $data['type'] ?? null;
 
         //Build the filters
         $filters = [];
-        if ($supplierId) {
-            $filters[] = ['supplier_id', '=', $supplierId];
-        }
-        if ($centerId) {
-            $filters[] = ['centers', '=', $centerId];
-        }
         if ($type) {
             $filters[] = ['type', '=', $type];
         }
@@ -69,7 +61,8 @@ class SupplierController extends ResponseController
         $rules = [
             'name' => 'required|string',
             'type' => 'required|string',
-            'center_id' => 'sometimes|string',
+            'center' => 'sometimes|array|nullable',
+            'centers.*' => 'string',
         ];
 
         //Validate the request data
@@ -78,6 +71,25 @@ class SupplierController extends ResponseController
         //If data is a response, return the response
         if ($data instanceof JsonResponse) {
             return $data;
+        }
+
+        $centersBD = Center::all();
+        //If centers are provided, validate and update them
+        if (isset($data['centers'])) {
+            //Validate the centers
+            if(count($data['centers']) == 0) {
+                return $data['centers'] = null;
+            }
+            foreach ($data['centers'] as $centerId) {
+                if (!$centersBD->contains('id', $centerId)) {
+                    return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
+                }
+            }
+            //Save the centers as an array
+            $data['centers'] = array_values($data['centers']); // Reindex the array to avoid gaps in the keys
+        } else {
+            //If centers are not provided, set them to null
+            $data['centers'] = null;
         }
 
         //Create the supplier
@@ -100,7 +112,8 @@ class SupplierController extends ResponseController
         $rules = [
             'name' => 'sometimes|string',
             'type' => 'sometimes|string',
-            'center_id' => 'sometimes|string',
+            'centers' => 'sometimes|array|nullable',
+            'centers.*' => 'string',
         ];
 
         //Validate the request data
@@ -109,6 +122,25 @@ class SupplierController extends ResponseController
         //If data is a response, return the response
         if ($data instanceof JsonResponse) {
             return $data;
+        }
+
+        $centersBD = Center::all();
+        //If centers are provided, validate and update them
+        if (isset($data['centers'])) {
+            //Validate the centers
+            if(count($data['centers']) == 0) {
+                return $data['centers'] = null;
+            }
+            foreach ($data['centers'] as $centerId) {
+                if (!$centersBD->contains('id', $centerId)) {
+                    return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
+                }
+            }
+            //Save the centers as an array
+            $data['centers'] = array_values($data['centers']); // Reindex the array to avoid gaps in the keys
+        } else {
+            //If centers are not provided, set them to null
+            $data['centers'] = null;
         }
 
         //Update the supplier
@@ -136,5 +168,51 @@ class SupplierController extends ResponseController
         $supplier->delete();
 
         return $this->respondSuccess('Supplier deleted successfully');
+    }
+
+    public function updateCentersOnInvoices(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'supplier_id' => 'required',
+            'manual' => 'sometimes|boolean',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Find the supplier by ID
+        $supplier = Supplier::find($data['supplier_id']);
+
+        //If not found, return error
+        if (!$supplier) {
+            return $this->respondNotFound('Supplier not found');
+        }
+
+        //Array to string centers
+        $centers = $supplier->centers;
+
+        //If manual is not provided, set it to false
+        $manual = $data['manual'] ?? false;
+
+        // Construir la query para las facturas
+        $query = Invoice::where('supplier_id', $data['supplier_id']);
+
+        // Si no se deben incluir manuales, filtrarlos
+        if (!$manual) {
+            $query->where('manual', '!=', true);
+        }
+
+        // Ejecutar updateMany
+        $query->update([
+            'centers' => json_encode($centers)
+        ]);
+
+        return $this->respondSuccess($supplier);
     }
 }

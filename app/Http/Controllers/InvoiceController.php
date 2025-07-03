@@ -190,6 +190,8 @@ class InvoiceController extends ResponseController
                 // partner_id = [id, name]
                 [$partnerId, $partnerName] = $inv['partner_id'];
 
+                //Flag to check if the supplier is new
+                $newSupplier = false;
                 //Check if the supplier exists in the database
                 $supplier = $suppliersDB->firstWhere('odoo_supplier_id', $partnerId);
                 if ($supplier === null) {
@@ -198,7 +200,7 @@ class InvoiceController extends ResponseController
                         'name' => $partnerName,
                         'odoo_supplier_id' => $partnerId,
                         'type' => null,
-                        'center_id' => null,
+                        'centers' => null,
                     ];
                     $supplier = Supplier::create($data);
 
@@ -207,11 +209,24 @@ class InvoiceController extends ResponseController
 
                     //Add the new supplier to the suppliers collection
                     $suppliersDB->push($supplier);
+                    $newSupplier = true;
                 }
 
                 $invoice = $invoicesDB->firstWhere('odoo_invoice_id', $inv['id']);
                 if ($invoice === null) {
                     //If the invoice does not exist, create it
+
+                    $centers = null;
+
+                    //If the supplier is not new, check if the supplier has centers
+                    if (!$newSupplier) {
+                        //If the supplier center are not null, get them
+                        if (!$supplier->centers == null) {
+                            //If the supplier has centers, get them
+                            $centers = json_encode($supplier->centers);
+                        }
+                    }
+
                     $data = [
                         'odoo_invoice_id' => $inv['id'],
                         'reference' => $inv['name'],
@@ -220,7 +235,7 @@ class InvoiceController extends ResponseController
                         'amount_total' => $inv['amount_total'],
                         'state' => $inv['state'],
                         'manual' => false,
-                        'centers' => null,
+                        'centers' => $centers,
                         'business_line_id' => null,
                         'share_type_id' => '6817dc38510684896685b888',
                         'supplier_id' => $supplier->id,

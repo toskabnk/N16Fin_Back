@@ -430,4 +430,111 @@ class InvoiceController extends ResponseController
         //Return the response
         return $this->respondSuccess($invoice, 201);
     }
+
+    public function getNumberOfInvoicesToAdd(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'type' => 'sometimes|string|in:in,out',
+            'limit' => 'sometimes|numeric',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        if (isset($data['type'])) {
+            $type = $data['type'];
+        } else {
+            $type = 'in';
+        }
+        
+        if (isset($data['limit'])) {
+            $limit = $data['limit'];
+        } else {
+            $limit = 50;
+        }
+
+        //Get the number of invoices to add
+        if($type == 'in') {
+            $invoices = $this->odoo->getIncomingInvoices($limit);
+        } else {
+            $invoices = $this->odoo->getOutgoingInvoices($limit);
+        }
+
+        $numAddedInvoices = 0;
+        $numNotAddedInvoices = 0;
+
+
+        foreach ($invoices as $inv) {
+            //Check if the invoice is posted state
+            if($inv['state'] == 'posted') {
+                //Check if the invoice exists in the database
+                $existingInvoice = Invoice::where('odoo_invoice_id', $inv['id'])->first();
+                if ($existingInvoice) {
+                    $numAddedInvoices++;
+                } else {
+                    $numNotAddedInvoices++;
+                }
+            }
+        }
+
+        $data = [
+            'num_added_invoices' => $numAddedInvoices,
+            'num_not_added_invoices' => $numNotAddedInvoices,
+        ];
+
+        //Return the response
+        return $this->respondSuccess($data);
+    }
+
+    public function getTotalThisMonth(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'type' => 'sometimes|string|in:in,out',
+            'year' => 'sometimes|string|max:9',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Validate the year format YYYY or YYYY/YYYY
+        if (isset($data['year']) && !preg_match('/^\d{4}\/\d{4}$/', $data['year'])) {
+            return $this->respondBadRequest('Invalid year format. Please provide a valid year in YYYY/YYYY format.');
+        }
+
+        if (isset($data['type'])) {
+            $type = $data['type'];
+        } else {
+            $type = 'in';
+        }
+
+        //Get the current month
+        $currentMonth = Carbon::now()->format('m');
+
+        //Get the current year
+        $currentYear = Carbon::now()->format('Y');
+
+        //Get the invoices for the current month and year
+        $invoices = Invoice::where('month', $currentMonth)
+            ->whereYear('invoice_date', $currentYear)
+            ->where('type', $type)
+            ->get();
+        
+        //Calculate the total amount
+        $total = $invoices->sum('amount_total');
+
+        //Return the response
+        return $this->respondSuccess(['total' => $total]);
+    }
 }

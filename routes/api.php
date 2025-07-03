@@ -30,6 +30,8 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
     Route::controller(InvoiceController::class)->prefix("invoices/")->group(function () {
         Route::get('/', 'viewAll');
         Route::get('/odoo', 'viewOdooInvoices');
+        Route::get('/getTotalMonth', 'getTotalThisMonth');
+        Route::get('/getNumberToAdd', 'getNumberOfInvoicesToAdd');
         Route::post('/resetInvoice/{id}', 'resetInvoice'); //super_admin
         Route::get('/{id}', 'view');
         Route::post('/allNewOdoo', 'addAllNewOdooInvoices');

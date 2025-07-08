@@ -10,8 +10,6 @@ use App\Http\Controllers\ShareTypeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\YearController;
-use App\Models\Center;
-use App\Models\CenterSalary;
 use Illuminate\Support\Facades\Route;
 
 //AUTH
@@ -22,6 +20,7 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
     //User routes
     Route::controller(UserController::class)->prefix("users/")->group(function () {
         Route::get('/', 'viewAll');
+        Route::get('/me', 'me');
         Route::get('/{id}', 'view');
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin

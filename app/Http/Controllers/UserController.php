@@ -68,6 +68,7 @@ class UserController extends ResponseController
     {
         //Validation rules
         $rules = [
+            'current_password' => 'required|string',
             'password' => 'required|string',
         ];
 
@@ -81,6 +82,16 @@ class UserController extends ResponseController
 
         /** @var User $user */
         $user = User::find($id);
+
+        //Check if the user exists
+        if ($user === null) {
+            return $this->respondNotFound('User not found');
+        }
+
+        //Check if the current password is correct
+        if (!Hash::check($data['current_password'], $user->password)) {
+            return $this->respondUnauthorized('Current password is incorrect');
+        }
 
         //Update the password
         $user->update([
@@ -167,5 +178,19 @@ class UserController extends ResponseController
 
         //Return the response
         return $this->respondNoContent();
+    }
+
+    public function me()
+    {
+        //Get the authenticated user
+        $user = Auth::user();
+
+        //If the user is not found, return a response
+        if ($user === null) {
+            return $this->respondNotFound('User not found');
+        }
+
+        //Return the response
+        return $this->respondSuccess($user);
     }
 }

@@ -10,6 +10,7 @@ use App\Traits\ValidateRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use PSpell\Config;
 
 class InvoiceController extends ResponseController
 {
@@ -227,12 +228,15 @@ class InvoiceController extends ResponseController
                         }
                     }
 
+                    $amount = isset($supplier->only_add_vat) && $supplier->only_add_vat
+                        ? round($inv['amount_untaxed'] * env('VAT_NUMBER', 1.21), 2)
+                        : $inv['amount_total'];
                     $data = [
                         'odoo_invoice_id' => $inv['id'],
                         'reference' => $inv['name'],
                         'invoice_date' => $inv['invoice_date'],
                         'month' => Carbon::parse($inv['invoice_date'])->format('m'), // Resultado: "01"
-                        'amount_total' => $inv['amount_total'],
+                        'amount_total' => $amount,
                         'state' => $inv['state'],
                         'manual' => false,
                         'centers' => $centers,

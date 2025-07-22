@@ -14,13 +14,15 @@ class Supplier extends Model
         'odoo_supplier_id',
         'type',
         'centers',
+        'only_add_vat',
     ];
 
     protected $casts = [
         'centers' => 'array',
+        'only_add_vat' => 'boolean',
     ];
 
-    public function invoices() : HasMany
+    public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
     }

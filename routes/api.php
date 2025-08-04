@@ -96,6 +96,15 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
         Route::delete('/{id}', 'delete'); //super_admin
     });
 
+    //Concept routes
+    Route::controller(\App\Http\Controllers\ConceptController::class)->prefix("concepts/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
     //    Route::controller(CenterSalaryController::class)->prefix("center-salaries/")->group(function () {
     //    Route::get('/', 'viewAll'); // List all salaries with optional filters
     //    Route::get('/byCenterAndYear', 'viewByCenterAndYear'); // View salaries by center and year

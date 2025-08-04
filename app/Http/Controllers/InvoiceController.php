@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Center;
 use App\Models\Invoice;
 use App\Models\Supplier;
+use App\Models\Concept;
 use App\Services\OdooService;
 use App\Traits\ValidateRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use PSpell\Config;
 
 class InvoiceController extends ResponseController
 {
@@ -291,6 +291,8 @@ class InvoiceController extends ResponseController
             'centers' => 'sometimes|array|nullable',
             'centers.*' => 'string',
             'type' => 'sometimes|string|in:in,out',
+            'business_line_id' => 'sometimes|string|nullable',
+            'concept' => 'sometimes|string|max:255',
         ];
 
         //Validate the request data
@@ -312,7 +314,7 @@ class InvoiceController extends ResponseController
         if (isset($data['centers'])) {
             //Validate the centers
             if(count($data['centers']) == 0) {
-                return $data['centers'] = null;
+                $data['centers'] = [];
             }
             foreach ($data['centers'] as $centerId) {
                 if (!$centersBD->contains('id', $centerId)) {
@@ -326,7 +328,14 @@ class InvoiceController extends ResponseController
             $data['centers'] = null;
         }
 
-        //Set manul to true
+        //Search the concept in the database
+        $concept = Concept::where('name', $data['concept'])->first();
+        if (!$concept) {
+            //Create the concept if it does not exist
+            $concept = Concept::create(['name' => $data['concept']]);
+        }
+
+        //Set manual to true
         $data['manual'] = true;
 
         //Update the invoice
@@ -376,19 +385,35 @@ class InvoiceController extends ResponseController
             return $this->respondUnprocessableEntity('Invoice is not in posted state');
         }
 
+        //Get the supplier from Odoo
+        $odooSupplier = $odooInvoice[0]['partner_id'][0];
+        if ($odooSupplier === null) {
+            return $this->respondNotFound('Supplier not found in Odoo');
+        }
+
+        //Get the supplier
+        $supplier = Supplier::find($odooSupplier[0]);
+        if (!$supplier) {
+            return $this->respondNotFound('Supplier not found');
+        }
+
+        //Calculate the amount based on the supplier's only_add_vat field
+        $amount = isset($supplier->only_add_vat) && $supplier->only_add_vat
+            ? round($odooInvoice[0]['amount_untaxed'] * env('VAT_NUMBER', 1.21), 2)
+            : $odooInvoice[0]['amount_total'];
+
         //Update the invoice with the data from Odoo
         $invoice->state = $odooInvoice[0]['state'];
         $invoice->reference = $odooInvoice[0]['name'];
         $invoice->invoice_date = $odooInvoice[0]['invoice_date'];
         $invoice->month = Carbon::parse($odooInvoice[0]['invoice_date'])->format('m'); // Resultado: "01"
-        $invoice->amount_total = $odooInvoice[0]['amount_total'];
+        $invoice->amount_total = $amount;
         $invoice->manual = false;
-        $invoice->centers = null;
-        $invoice->business_line_id = null;
-        $invoice->supplier_id = $invoice->supplier_id;
+        $invoice->centers = $supplier->centers ? json_encode($supplier->centers) : null;
+        $invoice->business_line_id = $supplier->business_line_id ?? null;
+        $invoice->supplier_id = $supplier->id;
         $invoice->share_type_id = '6817dc38510684896685b888';
         $invoice->save();
-
 
         //Return the response
         return $this->respondSuccess($invoice);
@@ -410,6 +435,7 @@ class InvoiceController extends ResponseController
             'share_type_id' => 'sometimes|string',
             'supplier_id' => 'required|exists:suppliers,id',
             'type' => 'sometimes|string|in:in,out',
+            'concept' => 'required|string',
         ];
 
         //Validate the request data
@@ -423,6 +449,13 @@ class InvoiceController extends ResponseController
         //Add type null if not provided
         if (!isset($data['state'])) {
             $data['state'] = null;
+        }
+
+        //Search the concept in the database
+        $concept = Concept::where('name', $data['concept'])->first();
+        if (!$concept) {
+            //Create the concept if it does not exist
+            $concept = Concept::create(['name' => $data['concept']]);
         }
 
         //Set manual to true

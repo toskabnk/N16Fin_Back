@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use MongoDB\Laravel\Eloquent\Model;
+use MongoDB\Laravel\Relations\BelongsTo;
 
 class Supplier extends Model
 {
@@ -15,6 +16,9 @@ class Supplier extends Model
         'type',
         'centers',
         'only_add_vat',
+        'business_line_id',
+        'share_type_id',
+        'concept'
     ];
 
     protected $casts = [
@@ -25,5 +29,15 @@ class Supplier extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function businessLine(): BelongsTo
+    {
+        return $this->belongsTo(BusinessLine::class);
+    }
+
+    public function shareType(): BelongsTo
+    {
+        return $this->belongsTo(ShareType::class);
     }
 }

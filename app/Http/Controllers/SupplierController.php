@@ -111,20 +111,14 @@ class SupplierController extends ResponseController
         
         $centersBD = Center::all();
         //If centers are provided, validate and update them
-        if (isset($data['centers'])) {
-            //Validate the centers
-            if(count($data['centers']) == 0) {
-                return $data['centers'] = null;
-            }
+        if (isset($data['centers']) && count($data['centers']) > 0) {
             foreach ($data['centers'] as $centerId) {
                 if (!$centersBD->contains('id', $centerId)) {
                     return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
                 }
             }
-            //Save the centers as an array
-            $data['centers'] = array_values($data['centers']); // Reindex the array to avoid gaps in the keys
+            $data['centers'] = array_values($data['centers']);
         } else {
-            //If centers are not provided, set them to null
             $data['centers'] = null;
         }
 
@@ -191,20 +185,14 @@ class SupplierController extends ResponseController
 
         $centersBD = Center::all();
         //If centers are provided, validate and update them
-        if (isset($data['centers'])) {
-            //Validate the centers
-            if(count($data['centers']) == 0) {
-                return $data['centers'] = null;
-            }
+        if (isset($data['centers']) && count($data['centers']) > 0) {
             foreach ($data['centers'] as $centerId) {
                 if (!$centersBD->contains('id', $centerId)) {
                     return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
                 }
             }
-            //Save the centers as an array
-            $data['centers'] = array_values($data['centers']); // Reindex the array to avoid gaps in the keys
+            $data['centers'] = array_values($data['centers']);
         } else {
-            //If centers are not provided, set them to null
             $data['centers'] = null;
         }
 

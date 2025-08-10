@@ -3,7 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BussinessLineController;
 use App\Http\Controllers\CenterController;
-use App\Http\Controllers\CenterSalaryController;
+use App\Http\Controllers\CenterCostController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ObjectiveAndResultController;
 use App\Http\Controllers\ShareTypeController;
@@ -105,13 +105,13 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
         Route::delete('/{id}', 'delete'); //super_admin
     });
 
-    //    Route::controller(CenterSalaryController::class)->prefix("center-salaries/")->group(function () {
-    //    Route::get('/', 'viewAll'); // List all salaries with optional filters
-    //    Route::get('/byCenterAndYear', 'viewByCenterAndYear'); // View salaries by center and year
-    //    Route::post('/', 'create'); // Create a new salary record
-    //    Route::put('/{id}', 'update'); // Update an existing salary record
-    //    Route::delete('/{id}', 'delete'); // Delete a salary record
-    //});
+    Route::controller(CenterCostController::class)->prefix("center-costs/")->group(function () {
+        Route::get('/', 'viewAll'); // List all costs with optional filters
+        Route::get('/byCenterAndYear', 'viewByCenterAndYear'); // View costs by center and year
+        Route::post('/', 'create'); // Create a new cost record
+        Route::put('/{id}', 'update'); // Update an existing cost record
+        Route::delete('/{id}', 'delete'); // Delete a cost record
+    });
 
     });
 

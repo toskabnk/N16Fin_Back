@@ -62,21 +62,41 @@ class ObjectiveAndResultController extends ResponseController
         $objectivesAndResultsYearBefore = $queryYearBefore->get();
 
         // If no data found, return a not found response
-        if ($objectivesAndResults->isEmpty()) {
+        if ($objectivesAndResults->isEmpty() && $objectivesAndResultsYearBefore->isEmpty()) {
             return $this->respondNotFound('No objectives and results found for the specified year and business line.');
         }
 
         //If objectivesAndResultsYearBefore is not empty, add results from the previous year
         if (!$objectivesAndResultsYearBefore->isEmpty()) {
-            foreach ($objectivesAndResults as $objectiveAndResult) {
-                $previousYearData = $objectivesAndResultsYearBefore->firstWhere('id_business_line', $objectiveAndResult->id_business_line);
-                if ($previousYearData) {
-                    //Unset the results_year_before field if it exists
-                    unset($objectiveAndResult->results['results_year_before']);
-                    $objectiveAndResult->results['results_previous_year'] = $previousYearData->results;
-                    $objectiveAndResult->results['exist_previous'] = true;
-                } else {
-                    $objectiveAndResult->results['exist_previous'] = false;
+            if($objectivesAndResults->isEmpty()) {
+                $objectivesAndResults = [];
+                //If objectivesAndResults is empty, add not found flag to each result
+                foreach ($objectivesAndResultsYearBefore as $objectiveAndResult) {
+                    $objectiveAndResult->notFound = true;
+                }
+                $objectivesAndResults = $objectivesAndResultsYearBefore;
+                foreach ($objectivesAndResults as $objectiveAndResult) {
+                    unset($objectiveAndResult->results_year_before);
+                    $objectiveAndResult->results_year_before = $objectiveAndResult->results;
+                    unset($objectiveAndResult->results);
+                    $objectiveAndResult->projected_growth = 1;
+                }
+            }
+            else {
+                foreach ($objectivesAndResults as $objectiveAndResult) {
+                    $previousYearData = $objectivesAndResultsYearBefore->firstWhere('id_business_line', $objectiveAndResult->id_business_line);
+                    if($objectivesAndResults->isEmpty()) {
+                        $objectiveAndResult->results_year_before = $previousYearData->results;
+                        $previousYearData->notFound = true;
+                    }
+                    else{
+                        if ($previousYearData) {
+                            //Unset the results_year_before field if it exists
+                            unset($objectiveAndResult->results_year_before);
+                            $objectiveAndResult->results_year_before = $previousYearData->results;
+                            $objectiveAndResult->results_year_before = $previousYearData->results;
+                        }
+                    }
                 }
             }
         }

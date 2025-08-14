@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use MongoDB\Laravel\Eloquent\Model;
+use MongoDB\Laravel\Relations\BelongsTo;
 
 class Invoice extends Model
 {
@@ -32,16 +33,16 @@ class Invoice extends Model
         'centers' => 'array',
     ];
 
-    public function supplier()
+    public function supplier() : BelongsTo
     {
         return $this->belongsTo(Supplier::class);
     }
 
-    public function businessLine()
+    public function businessLine() : BelongsTo
     {
         return $this->belongsTo(BusinessLine::class);
     }
-    public function shareType()
+    public function shareType() : BelongsTo
     {
         return $this->belongsTo(ShareType::class);
     }

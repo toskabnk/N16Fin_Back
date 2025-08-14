@@ -38,7 +38,7 @@ class OdooService
                         [['move_type', '=', $invoiceType]]
                     ],
                     [
-                        'fields' => ['id','name','partner_id','invoice_date','amount_total','state'],
+                        'fields' => ['id','name','partner_id','invoice_date','amount_total','state', 'amount_untaxed'],
                         'limit'  => $limit,
                     ],
                 ],
@@ -77,7 +77,7 @@ class OdooService
                         [['id', '=', $id]]
                     ],
                     [
-                        'fields' => ['id','name','partner_id','invoice_date','amount_total','state'],
+                        'fields' => ['id','name','partner_id','invoice_date','amount_total','state','amount_untaxed'],
                     ],
                 ],
             ],

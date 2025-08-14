@@ -1,11 +1,15 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BussinessLineController;
 use App\Http\Controllers\CenterController;
+use App\Http\Controllers\CenterCostController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ObjectiveAndResultController;
 use App\Http\Controllers\ShareTypeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\YearController;
 use Illuminate\Support\Facades\Route;
 
 //AUTH
@@ -16,6 +20,7 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
     //User routes
     Route::controller(UserController::class)->prefix("users/")->group(function () {
         Route::get('/', 'viewAll');
+        Route::get('/me', 'me');
         Route::get('/{id}', 'view');
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin
@@ -27,6 +32,8 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
     Route::controller(InvoiceController::class)->prefix("invoices/")->group(function () {
         Route::get('/', 'viewAll');
         Route::get('/odoo', 'viewOdooInvoices');
+        Route::get('/getTotalMonth', 'getTotalThisMonth');
+        Route::get('/getNumberToAdd', 'getNumberOfInvoicesToAdd');
         Route::post('/resetInvoice/{id}', 'resetInvoice'); //super_admin
         Route::get('/{id}', 'view');
         Route::post('/allNewOdoo', 'addAllNewOdooInvoices');
@@ -42,6 +49,7 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
         Route::post('/', 'create'); //super_admin
         Route::put('/{id}', 'update'); //super_admin
         Route::delete('/{id}', 'delete'); //super_admin
+        Route::post('/updateCentersOnInvoices', 'updateCentersOnInvoices'); //super_admin
     });
 
     //Center routes
@@ -61,7 +69,53 @@ Route::middleware(['force.json', 'auth:sanctum'])->group(function(){
         Route::put('/{id}', 'update'); //super_admin
         Route::delete('/{id}', 'delete'); //super_admin
     });
-});
+
+    //Business line routes
+    Route::controller(BussinessLineController::class)->prefix("business-lines/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    //Objective and Result routes
+    Route::controller(ObjectiveAndResultController::class)->prefix("objetives/")->group(function () {
+        Route::get('/', 'viewYearlyObjectivesAndResults');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    Route::controller(YearController::class)->prefix("years/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/currentYear', 'viewCurrentYear');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    //Concept routes
+    Route::controller(\App\Http\Controllers\ConceptController::class)->prefix("concepts/")->group(function () {
+        Route::get('/', 'viewAll');
+        Route::get('/{id}', 'view');
+        Route::post('/', 'create'); //super_admin
+        Route::put('/{id}', 'update'); //super_admin
+        Route::delete('/{id}', 'delete'); //super_admin
+    });
+
+    Route::controller(CenterCostController::class)->prefix("center-costs/")->group(function () {
+        Route::get('/', 'viewAll'); // List all costs with optional filters
+        Route::get('/byCenterAndYear', 'viewByCenterAndYear'); // View costs by center and year
+        Route::post('/', 'create'); // Create a new cost record
+        Route::put('/{id}', 'update'); // Update an existing cost record
+        Route::delete('/{id}', 'delete'); // Delete a cost record
+    });
+
+    });
+
+
 
 Route::fallback(function (){
     abort(404, 'API resource not found');

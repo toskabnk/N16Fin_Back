@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use MongoDB\Laravel\Eloquent\Model;
+use MongoDB\Laravel\Relations\BelongsTo;
 
 class Supplier extends Model
 {
@@ -12,16 +14,30 @@ class Supplier extends Model
         'name',
         'odoo_supplier_id',
         'type',
-        'center_id',
+        'centers',
+        'only_add_vat',
+        'business_line_id',
+        'share_type_id',
+        'concept'
     ];
 
-    public function invoices()
+    protected $casts = [
+        'centers' => 'array',
+        'only_add_vat' => 'boolean',
+    ];
+
+    public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
     }
 
-    public function center()
+    public function businessLine(): BelongsTo
     {
-        return $this->belongsTo(Center::class);
+        return $this->belongsTo(BusinessLine::class);
+    }
+
+    public function shareType(): BelongsTo
+    {
+        return $this->belongsTo(ShareType::class);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Center;
 use App\Models\Invoice;
 use App\Models\Supplier;
+use App\Models\Concept;
 use App\Services\OdooService;
 use App\Traits\ValidateRequest;
 use Illuminate\Http\JsonResponse;
@@ -190,6 +191,8 @@ class InvoiceController extends ResponseController
                 // partner_id = [id, name]
                 [$partnerId, $partnerName] = $inv['partner_id'];
 
+                //Flag to check if the supplier is new
+                $newSupplier = false;
                 //Check if the supplier exists in the database
                 $supplier = $suppliersDB->firstWhere('odoo_supplier_id', $partnerId);
                 if ($supplier === null) {
@@ -198,7 +201,7 @@ class InvoiceController extends ResponseController
                         'name' => $partnerName,
                         'odoo_supplier_id' => $partnerId,
                         'type' => null,
-                        'center_id' => null,
+                        'centers' => null,
                     ];
                     $supplier = Supplier::create($data);
 
@@ -207,20 +210,36 @@ class InvoiceController extends ResponseController
 
                     //Add the new supplier to the suppliers collection
                     $suppliersDB->push($supplier);
+                    $newSupplier = true;
                 }
 
                 $invoice = $invoicesDB->firstWhere('odoo_invoice_id', $inv['id']);
                 if ($invoice === null) {
                     //If the invoice does not exist, create it
+
+                    $centers = null;
+
+                    //If the supplier is not new, check if the supplier has centers
+                    if (!$newSupplier) {
+                        //If the supplier center are not null, get them
+                        if (!$supplier->centers == null) {
+                            //If the supplier has centers, get them
+                            $centers = json_encode($supplier->centers);
+                        }
+                    }
+
+                    $amount = isset($supplier->only_add_vat) && $supplier->only_add_vat
+                        ? round($inv['amount_untaxed'] * env('VAT_NUMBER', 1.21), 2)
+                        : $inv['amount_total'];
                     $data = [
                         'odoo_invoice_id' => $inv['id'],
                         'reference' => $inv['name'],
                         'invoice_date' => $inv['invoice_date'],
                         'month' => Carbon::parse($inv['invoice_date'])->format('m'), // Resultado: "01"
-                        'amount_total' => $inv['amount_total'],
+                        'amount_total' => $amount,
                         'state' => $inv['state'],
                         'manual' => false,
-                        'centers' => null,
+                        'centers' => $centers,
                         'business_line_id' => null,
                         'share_type_id' => '6817dc38510684896685b888',
                         'supplier_id' => $supplier->id,
@@ -269,9 +288,11 @@ class InvoiceController extends ResponseController
             'amount_total' => 'sometimes|numeric',
             'manual' => 'sometimes|boolean',
             'share_type_id' => 'sometimes|string',
-            'centers' => 'sometimes|array',
+            'centers' => 'sometimes|array|nullable',
             'centers.*' => 'string',
             'type' => 'sometimes|string|in:in,out',
+            'business_line_id' => 'sometimes|string|nullable',
+            'concept' => 'sometimes|string|max:255',
         ];
 
         //Validate the request data
@@ -293,7 +314,7 @@ class InvoiceController extends ResponseController
         if (isset($data['centers'])) {
             //Validate the centers
             if(count($data['centers']) == 0) {
-                return $data['centers'] = null;
+                $data['centers'] = [];
             }
             foreach ($data['centers'] as $centerId) {
                 if (!$centersBD->contains('id', $centerId)) {
@@ -307,7 +328,14 @@ class InvoiceController extends ResponseController
             $data['centers'] = null;
         }
 
-        //Set manul to true
+        //Search the concept in the database
+        $concept = Concept::where('name', $data['concept'])->first();
+        if (!$concept) {
+            //Create the concept if it does not exist
+            $concept = Concept::create(['name' => $data['concept']]);
+        }
+
+        //Set manual to true
         $data['manual'] = true;
 
         //Update the invoice
@@ -357,21 +385,193 @@ class InvoiceController extends ResponseController
             return $this->respondUnprocessableEntity('Invoice is not in posted state');
         }
 
+        //Get the supplier from Odoo
+        $odooSupplier = $odooInvoice[0]['partner_id'][0];
+        if ($odooSupplier === null) {
+            return $this->respondNotFound('Supplier not found in Odoo');
+        }
+
+        //Get the supplier
+        $supplier = Supplier::find($odooSupplier[0]);
+        if (!$supplier) {
+            return $this->respondNotFound('Supplier not found');
+        }
+
+        //Calculate the amount based on the supplier's only_add_vat field
+        $amount = isset($supplier->only_add_vat) && $supplier->only_add_vat
+            ? round($odooInvoice[0]['amount_untaxed'] * env('VAT_NUMBER', 1.21), 2)
+            : $odooInvoice[0]['amount_total'];
+
         //Update the invoice with the data from Odoo
         $invoice->state = $odooInvoice[0]['state'];
         $invoice->reference = $odooInvoice[0]['name'];
         $invoice->invoice_date = $odooInvoice[0]['invoice_date'];
         $invoice->month = Carbon::parse($odooInvoice[0]['invoice_date'])->format('m'); // Resultado: "01"
-        $invoice->amount_total = $odooInvoice[0]['amount_total'];
+        $invoice->amount_total = $amount;
         $invoice->manual = false;
-        $invoice->centers = null;
-        $invoice->business_line_id = null;
-        $invoice->supplier_id = $invoice->supplier_id;
+        $invoice->centers = $supplier->centers ? json_encode($supplier->centers) : null;
+        $invoice->business_line_id = $supplier->business_line_id ?? null;
+        $invoice->supplier_id = $supplier->id;
         $invoice->share_type_id = '6817dc38510684896685b888';
         $invoice->save();
 
-
         //Return the response
         return $this->respondSuccess($invoice);
+    }
+
+    public function create(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'odoo_invoice_id' => 'string|max:255|nullable',
+            'reference' => 'required|string|max:255',
+            'invoice_date' => 'required|date',
+            'month' => 'required|string',
+            'amount_total' => 'required|numeric',
+            'manual' => 'required|boolean',
+            'centers' => 'sometimes|array',
+            'centers.*' => 'string',
+            'business_line_id' => 'sometimes|string|nullable',
+            'share_type_id' => 'sometimes|string',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'type' => 'sometimes|string|in:in,out',
+            'concept' => 'required|string',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Add type null if not provided
+        if (!isset($data['state'])) {
+            $data['state'] = null;
+        }
+
+        //Search the concept in the database
+        $concept = Concept::where('name', $data['concept'])->first();
+        if (!$concept) {
+            //Create the concept if it does not exist
+            $concept = Concept::create(['name' => $data['concept']]);
+        }
+
+        //Set manual to true
+        $data['manual'] = true;
+
+        //Create the invoice
+        $invoice = Invoice::create($data);
+
+        //Return the response
+        return $this->respondSuccess($invoice, 201);
+    }
+
+    public function getNumberOfInvoicesToAdd(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'type' => 'sometimes|string|in:in,out',
+            'limit' => 'sometimes|numeric',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        if (isset($data['type'])) {
+            $type = $data['type'];
+        } else {
+            $type = 'in';
+        }
+        
+        if (isset($data['limit'])) {
+            $limit = $data['limit'];
+        } else {
+            $limit = 50;
+        }
+
+        //Get the number of invoices to add
+        if($type == 'in') {
+            $invoices = $this->odoo->getIncomingInvoices($limit);
+        } else {
+            $invoices = $this->odoo->getOutgoingInvoices($limit);
+        }
+
+        $numAddedInvoices = 0;
+        $numNotAddedInvoices = 0;
+
+
+        foreach ($invoices as $inv) {
+            //Check if the invoice is posted state
+            if($inv['state'] == 'posted') {
+                //Check if the invoice exists in the database
+                $existingInvoice = Invoice::where('odoo_invoice_id', $inv['id'])->first();
+                if ($existingInvoice) {
+                    $numAddedInvoices++;
+                } else {
+                    $numNotAddedInvoices++;
+                }
+            }
+        }
+
+        $data = [
+            'num_added_invoices' => $numAddedInvoices,
+            'num_not_added_invoices' => $numNotAddedInvoices,
+        ];
+
+        //Return the response
+        return $this->respondSuccess($data);
+    }
+
+    public function getTotalThisMonth(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'type' => 'sometimes|string|in:in,out',
+            'year' => 'sometimes|string|max:9',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Validate the year format YYYY or YYYY/YYYY
+        if (isset($data['year']) && !preg_match('/^\d{4}\/\d{4}$/', $data['year'])) {
+            return $this->respondBadRequest('Invalid year format. Please provide a valid year in YYYY/YYYY format.');
+        }
+
+        if (isset($data['type'])) {
+            $type = $data['type'];
+        } else {
+            $type = 'in';
+        }
+
+        //Get the current month
+        $currentMonth = Carbon::now()->format('m');
+
+        //Get the current year
+        $currentYear = Carbon::now()->format('Y');
+
+        //Get the invoices for the current month and year
+        $invoices = Invoice::where('month', $currentMonth)
+            ->whereYear('invoice_date', $currentYear)
+            ->where('type', $type)
+            ->get();
+        
+        //Calculate the total amount
+        $total = $invoices->sum('amount_total');
+
+        //Return the response
+        return $this->respondSuccess(['total' => $total]);
     }
 }

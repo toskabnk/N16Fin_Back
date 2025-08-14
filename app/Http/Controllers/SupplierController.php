@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessLine;
+use App\Models\Center;
+use App\Models\Concept;
+use App\Models\Invoice;
+use App\Models\ShareType;
 use App\Models\Supplier;
 use App\Traits\ValidateRequest;
 use Illuminate\Http\JsonResponse;
@@ -15,8 +20,6 @@ class SupplierController extends ResponseController
     {
         //Validation rules
         $rules = [
-            'supplier_id' => 'sometimes|string',
-            'center_id' => 'sometimes|string',
             'type' => 'sometimes|string',
         ];
 
@@ -29,24 +32,20 @@ class SupplierController extends ResponseController
         }
 
         //Get the filters
-        $supplierId = $data['supplier_id'] ?? null;
-        $centerId = $data['center_id'] ?? null;
         $type = $data['type'] ?? null;
+
+        $concept = $data['concept'] ?? null;
 
         //Build the filters
         $filters = [];
-        if ($supplierId) {
-            $filters[] = ['supplier_id', '=', $supplierId];
-        }
-        if ($centerId) {
-            $filters[] = ['centers', '=', $centerId];
-        }
         if ($type) {
             $filters[] = ['type', '=', $type];
+            $filters[] = ['concept', '=', $concept];
         }
 
         //Get the invoices with filters
-        $invoices = Supplier::where($filters)->get();
+        $invoices = Supplier::with(['businessLine', 'shareType'])
+            ->where($filters)->get();
 
         return $this->respondSuccess($invoices);
     }
@@ -54,7 +53,7 @@ class SupplierController extends ResponseController
     public function view($id)
     {
         //Find the invoice by ID
-        $supplier = Supplier::find($id);
+        $supplier = Supplier::with(['businessLine', 'shareType'])->find($id);
 
         //If not found, return error
         if (!$supplier) {
@@ -69,7 +68,12 @@ class SupplierController extends ResponseController
         $rules = [
             'name' => 'required|string',
             'type' => 'required|string',
-            'center_id' => 'sometimes|string',
+            'center' => 'sometimes|array|nullable',
+            'centers.*' => 'string',
+            'concept' => 'required|string',
+            'only_add_vat' => 'required|boolean',
+            'business_line_id' => 'sometimes|string|nullable',
+            'share_type_id' => 'sometimes|string|nullable',
         ];
 
         //Validate the request data
@@ -78,6 +82,44 @@ class SupplierController extends ResponseController
         //If data is a response, return the response
         if ($data instanceof JsonResponse) {
             return $data;
+        }
+
+        //Retrieve all concepts
+        $concepts = Concept::all();
+        
+        //Check if concept exists, if not, return create it
+        if (!$concepts->contains('name', $data['concept'])) {
+            //Create the concept
+            Concept::create(['name' => $data['concept']]);
+        }
+
+        //Check if the business line exists
+        if (isset($data['business_line_id']) && !empty($data['business_line_id'])) {
+            $businessLine = BusinessLine::find($data['business_line_id']);
+            if (!$businessLine) {
+                return $this->respondUnprocessableEntity('Business line does not exist');
+            }
+        }
+
+        //Check if the share type exists
+        if (isset($data['share_type_id']) && !empty($data['share_type_id'])) {
+            $shareType = ShareType::find($data['share_type_id']);
+            if (!$shareType) {
+                return $this->respondUnprocessableEntity('Share type does not exist');
+            }
+        }
+        
+        $centersBD = Center::all();
+        //If centers are provided, validate and update them
+        if (isset($data['centers']) && count($data['centers']) > 0) {
+            foreach ($data['centers'] as $centerId) {
+                if (!$centersBD->contains('id', $centerId)) {
+                    return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
+                }
+            }
+            $data['centers'] = array_values($data['centers']);
+        } else {
+            $data['centers'] = null;
         }
 
         //Create the supplier
@@ -100,7 +142,12 @@ class SupplierController extends ResponseController
         $rules = [
             'name' => 'sometimes|string',
             'type' => 'sometimes|string',
-            'center_id' => 'sometimes|string',
+            'centers' => 'sometimes|array|nullable',
+            'centers.*' => 'string',
+            'concept' => 'sometimes|string',
+            'only_add_vat' => 'sometimes|boolean',
+            'business_line_id' => 'sometimes|string|nullable',
+            'share_type_id' => 'sometimes|string|nullable',
         ];
 
         //Validate the request data
@@ -109,6 +156,44 @@ class SupplierController extends ResponseController
         //If data is a response, return the response
         if ($data instanceof JsonResponse) {
             return $data;
+        }
+
+        //Check if the business line exists
+        if (isset($data['business_line_id']) && !empty($data['business_line_id'])) {
+            $businessLine = BusinessLine::find($data['business_line_id']);
+            if (!$businessLine) {
+                return $this->respondUnprocessableEntity('Business line does not exist');
+            }
+        }
+
+        //Check if the share type exists
+        if (isset($data['share_type_id']) && !empty($data['share_type_id'])) {
+            $shareType = ShareType::find($data['share_type_id']);
+            if (!$shareType) {
+                return $this->respondUnprocessableEntity('Share type does not exist');
+            }
+        }
+
+        //Retrieve all concepts
+        $concepts = Concept::all();
+        
+        //Check if concept exists, if not, return create it
+        if (!$concepts->contains('name', $data['concept'])) {
+            //Create the concept
+            Concept::create(['name' => $data['concept']]);
+        }
+
+        $centersBD = Center::all();
+        //If centers are provided, validate and update them
+        if (isset($data['centers']) && count($data['centers']) > 0) {
+            foreach ($data['centers'] as $centerId) {
+                if (!$centersBD->contains('id', $centerId)) {
+                    return $this->respondUnprocessableEntity("Center with id $centerId does not exist");
+                }
+            }
+            $data['centers'] = array_values($data['centers']);
+        } else {
+            $data['centers'] = null;
         }
 
         //Update the supplier
@@ -136,5 +221,97 @@ class SupplierController extends ResponseController
         $supplier->delete();
 
         return $this->respondSuccess('Supplier deleted successfully');
+    }
+
+    public function updateCentersOnInvoices(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'supplier_id' => 'required',
+            'manual' => 'sometimes|boolean',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Find the supplier by ID
+        $supplier = Supplier::find($data['supplier_id']);
+
+        //If not found, return error
+        if (!$supplier) {
+            return $this->respondNotFound('Supplier not found');
+        }
+
+        //Array to string centers
+        $centers = $supplier->centers;
+
+        //If manual is not provided, set it to false
+        $manual = $data['manual'] ?? false;
+
+        // Construir la query para las facturas
+        $query = Invoice::where('supplier_id', $data['supplier_id']);
+
+        // Si no se deben incluir manuales, filtrarlos
+        if (!$manual) {
+            $query->where('manual', '!=', true);
+        }
+
+        // Ejecutar updateMany
+        $query->update([
+            'centers' => json_encode($centers)
+        ]);
+
+        return $this->respondSuccess($supplier);
+    }
+
+    public function updateConceptsOnInvoices(Request $request)
+    {
+        //Validation rules
+        $rules = [
+            'supplier_id' => 'required',
+            'manual' => 'sometimes|boolean',
+        ];
+
+        //Validate the request data
+        $data = $this->validateData($request, $rules);
+
+        //If data is a response, return the response
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        //Find the supplier by ID
+        $supplier = Supplier::find($data['supplier_id']);
+
+        //If not found, return error
+        if (!$supplier) {
+            return $this->respondNotFound('Supplier not found');
+        }
+
+        //Get the concept of the supplier
+        $concept = $supplier->concept;
+
+        //If manual is not provided, set it to false
+        $manual = $data['manual'] ?? false;
+
+        // Construir la query para las facturas
+        $query = Invoice::where('supplier_id', $data['supplier_id']);
+
+        // Si no se deben incluir manuales, filtrarlos
+        if (!$manual) {
+            $query->where('manual', '!=', true);
+        }
+
+        // Ejecutar updateMany
+        $query->update([
+            'concept' => $concept
+        ]);
+
+        return $this->respondSuccess($supplier);
     }
 }

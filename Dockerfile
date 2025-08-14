@@ -46,7 +46,7 @@ server {
 }
 EOF
 
-RUN git clone --single-branch --branch develop https://github.com/toskabnk/N16Fin_Back.git .
+RUN git clone https://github.com/toskabnk/N16Fin_Back.git .
 
 RUN [ -f .env ] || cp .env.example .env
 

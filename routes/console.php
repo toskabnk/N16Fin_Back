@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-use App\Console\Commands\SyncOdooInvoices;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -14,7 +13,8 @@ Artisan::command('inspire', function () {
 //Schedule::command('sync:odoo-invoices')->hourly();
 
 // O ejecutarlo diariamente a las 2:00 AM
-Schedule::command('sync:odoo-invoices')->dailyAt('02:00');
+Schedule::command('sync:incoming-odoo-invoices')->dailyAt('02:00');
+Schedule::command('sync:outgoing-odoo-invoices')->dailyAt('02:05');
 
 // O cada 30 minutos
 // Schedule::command('sync:odoo-invoices')->everyThirtyMinutes();
